@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enhanced Task Scheduler</title>
+
+    <!-- Bootstrap CDN -->
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+
+    <style>
+        :root {
+            --primary-color: #3498db;
+            --secondary-color: #2ecc71;
+            --background-color: #ecf0f1;
+            --text-color: #34495e;
+        }
+
+        body {
+            background-color: var(--background-color);
+            color: var(--text-color);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            padding-top: 50px;
+        }
+
+        h2, h3 {
+            color: var(--text-color);
+            font-weight: bold;
+        }
+
+        .container {
+            background-color: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            max-width: 900px;
+        }
+
+        .form-control, .btn {
+            transition: all 0.3s ease;
+        }
+
+        .form-control:focus {
+            box-shadow: 0 0 0 0.2rem rgba(52, 152, 219, 0.25);
+        }
+
+        .btn-primary {
+            background-color: var(--primary-color);
+            border-color: var(--primary-color);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .table {
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-top: 20px;
+        }
+
+        .table th, .table td {
+            padding: 12px;
+            vertical-align: middle;
+        }
+
+        .table thead {
+            background-color: var(--primary-color);
+            color: #ffffff;
+        }
+
+        .table tbody tr:nth-child(even) {
+            background-color: rgba(52, 152, 219, 0.05);
+        }
+
+        .badge-danger {
+            background-color: #e74c3c;
+        }
+
+        .badge-warning {
+            background-color: #f39c12;
+        }
+
+        .badge-success {
+            background-color: var(--secondary-color);
+        }
+
+        .completed-task {
+            text-decoration: line-through;
+            color: #95a5a6;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+            h2, h3 {
+                font-size: 1.5rem;
+            }
+            .form-group label {
+                font-size: 0.9rem;
+            }
+            .form-control {
+                font-size: 0.9rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2 class="text-center mb-4">Task Scheduler</h2>
+    <form id="taskForm" class="form-group needs-validation" novalidate>
+        <div class="row">
+            <div class="col-md-4 mb-3">
+                <label for="taskName">Task Name:</label>
+                <input type="text" id="taskName" name="taskName" class="form-control" required>
+                <div class="invalid-feedback">Please provide a task name.</div>
+            </div>
+            <div class="col-md-4 mb-3">
+                <label for="deadline">Deadline:</label>
+                <input type="date" id="deadline" name="deadline" class="form-control" required>
+                <div class="invalid-feedback">Please select a deadline.</div>
+            </div>
+            <div class="col-md-4 mb-3">
+                <label for="duration">Estimated Duration (hours):</label>
+                <input type="number" id="duration" name="duration" class="form-control" required>
+                <div class="invalid-feedback">Please provide an estimated duration.</div>
+            </div>
+        </div>
+        <button type="submit" class="btn btn-primary mt-2">Add Task</button>
+    </form>
+
+    <div id="taskCounter" class="text-center mt-3 mb-3"></div>
+
+    <h3 class="text-center mt-4">Task List</h3>
+    <table class="table table-bordered">
+        <thead>
+            <tr>
+                <th onclick="sortTable(0)">Task Name</th>
+                <th onclick="sortTable(1)">Deadline</th>
+                <th onclick="sortTable(2)">Duration (hours)</th>
+                <th>Urgency</th>
+                <th>Completed</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody id="taskList">
+            <!-- Tasks will appear here -->
+        </tbody>
+    </table>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirm Deletion</h5>
+                <button type="button" class="close" data-dismiss="modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete this task?</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirmDelete">Delete</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.3/dist/umd/popper.min.js"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+
+<script>
+    let taskToDelete = null;
+
+    document.getElementById('taskForm').addEventListener('submit', function(event) {
+        event.preventDefault();
+        if (this.checkValidity() === false) {
+            event.stopPropagation();
+            this.classList.add('was-validated');
+        } else {
+            addTask();
+            this.reset();
+            this.classList.remove('was-validated');
+        }
+    });
+
+    function addTask() {
+        let taskName = document.getElementById('taskName').value;
+        let deadline = document.getElementById('deadline').value;
+        let duration = document.getElementById('duration').value;
+        let urgency = calculateUrgency(deadline);
+
+        let table = document.getElementById('taskList');
+        let row = table.insertRow();
+        row.innerHTML = `
+            <td>${taskName}</td>
+            <td>${deadline}</td>
+            <td>${duration}</td>
+            <td>${urgency}</td>
+            <td><input type="checkbox" class="complete-checkbox" onchange="toggleComplete(this)"></td>
+            <td><button class="btn btn-danger btn-sm" onclick="showDeleteModal(this)">Delete</button></td>
+        `;
+
+        updateTaskCounter();
+        saveTasks();
+    }
+
+    function calculateUrgency(deadline) {
+        let currentDate = new Date();
+        let taskDate = new Date(deadline);
+        let timeDiff = taskDate - currentDate;
+        let daysRemaining = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
+
+        if (daysRemaining <= 1) {
+            return '<span class="badge badge-danger">High</span>';
+        } else if (daysRemaining <= 3) {
+            return '<span class="badge badge-warning">Medium</span>';
+        } else {
+            return '<span class="badge badge-success">Low</span>';
+        }
+    }
+
+    function toggleComplete(checkbox) {
+        let row = checkbox.closest('tr');
+        if (checkbox.checked) {
+            row.classList.add('completed-task');
+        } else {
+            row.classList.remove('completed-task');
+        }
+        saveTasks();
+    }
+
+    function showDeleteModal(btn) {
+        taskToDelete = btn.closest('tr');
+        $('#deleteModal').modal('show');
+    }
+
+    document.getElementById('confirmDelete').addEventListener('click', function() {
+        if (taskToDelete) {
+            taskToDelete.remove();
+            updateTaskCounter();
+            saveTasks();
+        }
+        $('#deleteModal').modal('hide');
+    });
+
+    function updateTaskCounter() {
+        const taskCount = document.getElementById('taskList').rows.length;
+        document.getElementById('taskCounter').textContent = `Total Tasks: ${taskCount}`;
+    }
+
+    function sortTable(n) {
+        var table, rows, switching, i, x, y, shouldSwitch, dir, switchcount = 0;
+        table = document.getElementById("taskList");
+        switching = true;
+        dir = "asc";
+        while (switching) {
+            switching = false;
+            rows = table.rows;
+            for (i = 0; i < (rows.length - 1); i++) {
+                shouldSwitch = false;
+                x = rows[i].getElementsByTagName("TD")[n];
+                y = rows[i + 1].getElementsByTagName("TD")[n];
+                if (dir == "asc") {
+                    if (x.innerHTML.toLowerCase() > y.innerHTML.toLowerCase()) {
+                        shouldSwitch = true;
+                        break;
+                    }
+                } else if (dir == "desc") {
+                    if (x.innerHTML.toLowerCase() < y.innerHTML.toLowerCase()) {
+                        shouldSwitch = true;
+                        break;
+                    }
+                }
+            }
+            if (shouldSwitch) {
+                rows[i].parentNode.insertBefore(rows[i + 1], rows[i]);
+                switching = true;
+                switchcount++;
+            } else {
+                if (switchcount == 0 && dir == "asc") {
+                    dir = "desc";
+                    switching = true;
+                }
+            }
+        }
+    }
+
+    function saveTasks() {
+        const tasks = [];
+        document.querySelectorAll('#taskList tr').forEach(row => {
+            tasks.push({
+                name: row.cells[0].textContent,
+                deadline: row.cells[1].textContent,
+                duration: row.cells[2].textContent,
+                completed: row.cells[4].querySelector('input').checked
+            });
+        });
+        localStorage.setItem('tasks', JSON.stringify(tasks));
+    }
+
+    function loadTasks() {
+        const tasks = JSON.parse(localStorage.getItem('tasks')) || [];
+        tasks.forEach(task => {
+            let table = document.getElementById('taskList');
+            let row = table.insertRow();
+            row.innerHTML = `
+                <td>${task.name}</td>
+                <td>${task.deadline}</td>
+                <td>${task.duration}</td>
+                <td>${calculateUrgency(task.deadline)}</td>
+                <td><input type="checkbox" class="complete-checkbox" onchange="toggleComplete(this)" ${task.completed ? 'checked' : ''}></td>
+                <td><button class="btn btn-danger btn-sm" onclick="showDeleteModal(this)">Delete</button></td>
+            `;
+            if (task.completed) {
+                row.classList.add('completed-task');
+            }
+        });
+        updateTaskCounter();
+    }
+
+    window.onload = loadTasks;
+</script>
+
+</body>
+</html>
